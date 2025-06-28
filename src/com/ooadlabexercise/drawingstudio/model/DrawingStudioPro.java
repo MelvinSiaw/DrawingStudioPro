@@ -1,7 +1,7 @@
 package com.ooadlabexercise.drawingstudio.model;
 
-import java.awt.*;
 import javax.swing.*;
+import java.awt.*;
 
 public class DrawingStudioPro {
     public static void main(String[] args) {

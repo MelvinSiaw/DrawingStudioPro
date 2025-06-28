@@ -1,13 +1,12 @@
 package com.ooadlabexercise.drawingstudio.model;
 
-import javax.imageio.ImageIO;
-import javax.swing.*;
-import javax.swing.event.ChangeListener;
 import java.awt.*;
 import java.awt.event.*;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import javax.imageio.ImageIO;
+import javax.swing.*;
 
 public class StudioToolbar extends JToolBar {
     private final ReferenceCanvasPanel refCanvas;
@@ -25,30 +24,36 @@ public class StudioToolbar extends JToolBar {
         setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
 
         // Undo/Redo
-        addButton("Undo",  e -> drawCanvas.undo());
-        addButton("Redo",  e -> drawCanvas.redo());
+        addButton("Undo", e -> drawCanvas.undo());
+        addButton("Redo", e -> drawCanvas.redo());
         addSpacing();
 
-        // Reference controls
+        // Reference image controls
         addButton("Open Reference...", e -> loadReference());
-        addButton("Clear Reference",    e -> refCanvas.clearImage());
-        addButton("Add Animal Ref",     e -> refCanvas.setImage(loadImage("animal.jpg")));
-        addButton("Add Flower Ref",     e -> refCanvas.setImage(loadImage("flower.jpg")));
-        addButton("Reset Ref View",     e -> refCanvas.resetView());
+        addButton("Clear Reference", e -> refCanvas.clearAllImages());
+        addButton("Add Animal Ref", e -> {
+            BufferedImage img = loadImage("animal.jpg");
+            if (img != null) refCanvas.addImage(img);
+        });
+        addButton("Add Flower Ref", e -> {
+            BufferedImage img = loadImage("flower.jpg");
+            if (img != null) refCanvas.addImage(img);
+        });
+        addButton("Reset Ref View", e -> refCanvas.clearSelection());
         addSpacing();
 
-        // Rotation slider (0–360°)
-        JLabel rotLabel = new JLabel("Rotate Ref:");
+        // Rotation slider
+        JLabel rotLabel = new JLabel("Rotate Selected:");
         rotLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
         add(rotLabel);
         JSlider rotSlider = new JSlider(0, 360, 0);
         rotSlider.setMaximumSize(new Dimension(140, 40));
         rotSlider.setAlignmentX(Component.CENTER_ALIGNMENT);
-        rotSlider.addChangeListener(e -> refCanvas.setRotation(rotSlider.getValue()));
+        rotSlider.addChangeListener(e -> refCanvas.rotateSelected(rotSlider.getValue()));
         add(rotSlider);
         addSpacing();
 
-        // Drawing controls
+        // Drawing canvas controls
         addButton("New Drawing", e -> drawCanvas.clearCanvas());
         addSpacing();
         addDrawingToolButtons();
@@ -59,6 +64,18 @@ public class StudioToolbar extends JToolBar {
         addSpacing();
         addButton("Bucket Fill", e -> chooseFill());
         addSpacing();
+
+        // Import drawing into reference canvas
+        addButton("Import Drawing to Ref", e -> {
+            BufferedImage drawing = drawCanvas.getCanvasImage();
+            BufferedImage copy = new BufferedImage(
+                drawing.getWidth(), drawing.getHeight(), drawing.getType());
+            copy.getGraphics().drawImage(drawing, 0, 0, null);
+            refCanvas.addImage(copy);
+        });
+        addSpacing();
+
+        // Save Drawing button
         addButton("Save Drawing", e -> saveDrawing());
         addGlue();
     }
@@ -76,7 +93,7 @@ public class StudioToolbar extends JToolBar {
         JFileChooser chooser = new JFileChooser();
         if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
             try {
-                refCanvas.setImage(ImageIO.read(chooser.getSelectedFile()));
+                refCanvas.addImage(ImageIO.read(chooser.getSelectedFile()));
             } catch (IOException ex) {
                 JOptionPane.showMessageDialog(this, "Failed to load reference image");
             }
@@ -103,7 +120,7 @@ public class StudioToolbar extends JToolBar {
         JSlider slider = new JSlider(1, 50, 2);
         slider.setMaximumSize(new Dimension(120, 40));
         slider.setAlignmentX(Component.CENTER_ALIGNMENT);
-        slider.addChangeListener((ChangeListener) e -> drawCanvas.setPenSize(slider.getValue()));
+        slider.addChangeListener(e -> drawCanvas.setPenSize(slider.getValue()));
         add(slider);
     }
 
@@ -118,29 +135,40 @@ public class StudioToolbar extends JToolBar {
     }
 
     private void addDrawingToolButtons() {
-        addButton("Freehand",  e -> setToolCursor(DrawingCanvasPanel.Tool.FREEHAND, Cursor.DEFAULT_CURSOR));
-        addButton("Line",      e -> setToolCursor(DrawingCanvasPanel.Tool.LINE, Cursor.CROSSHAIR_CURSOR));
+        addButton("Freehand", e -> setToolCursor(DrawingCanvasPanel.Tool.FREEHAND, Cursor.DEFAULT_CURSOR));
+        addButton("Line", e -> setToolCursor(DrawingCanvasPanel.Tool.LINE, Cursor.CROSSHAIR_CURSOR));
         addButton("Rectangle", e -> setToolCursor(DrawingCanvasPanel.Tool.RECTANGLE, Cursor.CROSSHAIR_CURSOR));
-        addButton("Oval",      e -> setToolCursor(DrawingCanvasPanel.Tool.OVAL, Cursor.CROSSHAIR_CURSOR));
+        addButton("Oval", e -> setToolCursor(DrawingCanvasPanel.Tool.OVAL, Cursor.CROSSHAIR_CURSOR));
     }
 
     private void addButton(String title, ActionListener listener) {
         JButton b = new JButton(title);
         b.setAlignmentX(Component.CENTER_ALIGNMENT);
-        b.setMaximumSize(new Dimension(140, 30));
+        b.setMaximumSize(new Dimension(160, 30));
         b.addActionListener(listener);
         add(b);
     }
 
-    private void addSpacing() {
-        add(Box.createRigidArea(new Dimension(0, 5)));
-    }
+    private void addSpacing() { add(Box.createRigidArea(new Dimension(0, 5))); }
+    private void addGlue() { add(Box.createVerticalGlue()); }
 
-    private void addGlue() {
-        add(Box.createVerticalGlue());
-    }
-
+    /**
+     * Saves the current drawing into a "saved drawing" folder.
+     * Files are named drawing1.png, drawing2.png, ... without overwriting.
+     */
     private void saveDrawing() {
+        File dir = new File("saved drawing");
+        if (!dir.exists()) dir.mkdirs();
+
+        // find next available filename
+        String base = "drawing";
+        int idx = 1;
+        File file;
+        do {
+            file = new File(dir, base + idx + ".png");
+            idx++;
+        } while (file.exists());
+
         try {
             BufferedImage raw = drawCanvas.getCanvasImage();
             int w = raw.getWidth(), h = raw.getHeight();
@@ -150,8 +178,9 @@ public class StudioToolbar extends JToolBar {
             g.fillRect(0, 0, w, h);
             g.drawImage(raw, 0, 0, null);
             g.dispose();
-            ImageIO.write(out, "PNG", new File("drawing.png"));
-            JOptionPane.showMessageDialog(this, "Drawing saved to drawing.png");
+
+            ImageIO.write(out, "PNG", file);
+            JOptionPane.showMessageDialog(this, "Drawing saved to " + file.getPath());
         } catch (IOException ex) {
             JOptionPane.showMessageDialog(this, "Save failed");
         }

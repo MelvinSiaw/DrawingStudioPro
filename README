@@ -1,0 +1,17 @@
+# Drawing Studio Pro
+
+Simple Java Swing app for freehand drawing, shape tools, and a reference panel.
+
+## Requirements
+
+* Java JDK 8 or higher
+
+## Build & Run
+
+```bash
+# Compile sources
+javac -d out src/com/ooadlabexercise/drawingstudio/model/*.java
+
+# Run application
+java -cp out com.ooadlabexercise.drawingstudio.model.DrawingStudioPro
+```
